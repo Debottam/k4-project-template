@@ -18,6 +18,8 @@ limitations under the License.
 ]]
 
 file(GLOB _plugin_sources src/components/*.cpp)
+file(GLOB _plugin_headers src/components/*.h)
+
 gaudi_add_module(k4ProjectTemplatePlugins
                  SOURCES ${_plugin_sources}
                  LINK Gaudi::GaudiKernel
