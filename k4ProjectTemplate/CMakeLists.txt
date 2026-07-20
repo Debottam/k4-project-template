@@ -25,7 +25,20 @@ gaudi_add_module(k4ProjectTemplatePlugins
                  LINK Gaudi::GaudiKernel
                       k4FWCore::k4FWCore
                       EDM4HEP::edm4hep
+                      EDM4HEP::edm4hep
+                      k4FWCore::k4Interface
+                      k4geo::detectorCommon
+                      DD4hep::DDRec
+                      DD4hep::DDCore
+                      ${MarlinUtil_LIBRARIES}
+                      ${PandoraSDK_LIBRARIES}                      
                       )
+
+target_include_directories(k4ProjectTemplatePlugins
+                   PUBLIC
+                   ${MarlinUtil_INCLUDE_DIRS}
+                   ${PandoraSDK_INCLUDE_DIRS} 
+                   )
 
 install(TARGETS k4ProjectTemplatePlugins
   EXPORT ${CMAKE_PROJECT_NAME}Targets

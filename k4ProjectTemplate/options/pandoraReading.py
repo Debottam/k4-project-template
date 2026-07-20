@@ -1,16 +1,29 @@
 from Configurables import pandoraReading
 from k4FWCore import ApplicationMgr, IOSvc
-from Gaudi.Configuration import DEBUG
+from Gaudi.Configuration import DEBUG, INFO
+from Configurables import GeoSvc
+from Configurables import UniqueIDGenSvc
+import os
 
 io = IOSvc(
-    Input=["input_pandora.root"],
+    Input=["output_pandora_electron.root"],
     Output="output_pandora.root",
-    CollectionNames=["PandoraPFOs"]
+    CollectionNames=["PandoraPFOs","MCParticles", "MCTruthRecoLink","PandoraClusters","SiTracks_Refitted"]
 )
+
+geoservice = GeoSvc("GeoSvc")
+geoservice.detectors = [
+    os.environ["K4GEO"] + "/FCCee/CLD/compact/CLD_o2_v08/CLD_o2_v08.xml"
+]
+geoservice.OutputLevel = INFO
 
 alg = pandoraReading(
     "PandoraReading",
     InputPFOs="PandoraPFOs",
+    InputMCs="MCParticles",
+    RecoMCLinks="MCTruthRecoLink",
+    InputClusters="PandoraClusters",
+    InputTracks="SiTracks_Refitted",
     OutputPFOs="PandoraPFOsOutput"
 )
 
@@ -18,6 +31,7 @@ ApplicationMgr(
     TopAlg=[alg],
     ExtSvc=[io],
     EvtSel="NONE",
-    EvtMax=2,
-    OutputLevel=DEBUG,
+    EvtMax=10,
+    OutputLevel=INFO,
 )
+
