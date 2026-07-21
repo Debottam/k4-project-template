@@ -38,6 +38,7 @@ find_package(k4geo)
 find_package(sipm)
 find_package(PandoraSDK)
 find_package(MarlinUtil)
+find_package(k4RecTracker)
 
 include(cmake/Key4hepConfig.cmake)
 
