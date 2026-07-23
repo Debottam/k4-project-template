@@ -10,10 +10,20 @@
 
 DECLARE_COMPONENT(pandoraReading)
 
+// struct for storing cluster and assocated track from PFO
 struct ClusterTrackMap {
     edm4hep::Cluster cluster;
     std::vector<edm4hep::Track> tracks;
 };
+
+// struct for storing cluster and assocated track for target PFO
+struct bremRecoveredClusterTrackMap {
+    std::vector<edm4hep::Cluster> clusters;
+    std::vector<edm4hep::Track> tracks;
+};
+
+
+
 
 struct ThreeVector {
     double x, y, z;
@@ -221,6 +231,7 @@ bool GetPointInZ(const double zPlane,        // z plane (endcap) coordinate
 
     intersectPt.z = momVec.z > 0. ? std::abs(zPlane) : -std::abs(zPlane);
     std::cout<<"intersectPt.z: "<<intersectPt.z<<std::endl;
+    std::cout<<"momVec.z: "<<momVec.z<<std::endl;
     const double genericTime = (intersectPt.z - refPt.z)/momVec.z;
     std::cout<<"genericTime: "<<genericTime<<std::endl;
     std::cout<<"momVec.x: "<<momVec.x<<std::endl;
@@ -278,6 +289,46 @@ bool GetPointOnCircle(const double radius,        // (barrel) radius
     return true;
   }
 
+ double deltaPhi(const double p1, const double p2) {
+    double oo2pi = 1./(2.*M_PI);
+
+    if (std::abs(p1-p2) <= M_PI)
+      return p1 - p2;
+
+    double n = std::round((p1-p2)*oo2pi);
+
+    return p1 - p2 - n*2.*M_PI;
+  }
+
+
+bool GetPointOnCircleForRefAtOrigin(const double radius,        // (barrel) radius
+                        const ThreeVector& refPt,   // reference point
+                        const ThreeVector& momVec,  // momentum
+                        ThreeVector& intersectPt) { // output intersection point
+    double refPtXY = refPt.magXY();
+    double momVecXY = momVec.magXY();
+    // protect from zero division
+    if (std::abs(momVecXY) < std::numeric_limits<float>::epsilon()) {
+      throw std::invalid_argument("BremRecoveryUtility: invalid pt (zero division)");
+
+      return false;
+    }
+
+    // check the assumption
+    if (std::abs(refPtXY) > radius) {
+      throw std::invalid_argument("BremRecoveryUtility: invalid refPoint (ref. point outside the barrel)");
+
+      return false;
+    }
+    double genericTime = radius/momVecXY; // this is what we wanted
+
+    // now done with the geometry, come back to 3D
+    intersectPt.x = refPt.x + momVec.x*genericTime;
+    intersectPt.y = refPt.y + momVec.y*genericTime;
+    intersectPt.z = refPt.z + momVec.z*genericTime;
+
+    return true;
+  }
 
 
 pandoraReading::pandoraReading( const std::string& name,ISvcLocator* svc)
@@ -341,10 +392,17 @@ pandoraReading::operator()(const edm4hep::ReconstructedParticleCollection& input
     //throw std::runtime_error("operator() reached");
     edm4hep::ReconstructedParticleCollection output;
    
+    // Forming the cluster->track map
+    std::vector<ClusterTrackMap> clusterTrackMaps;
+
+    std::vector<edm4hep::Cluster> tempClusters;
+
+    std::vector<std::vector<edm4hep::Cluster>> bremRecoverdClusters;
+
     std::cout << "==============Number of PFOs ============ "<< input.size()<< std::endl;
 
 
-    for (const auto& pfo : input) {
+    for (const auto& pfo : input) {  //PFO loop starts
 
         auto newPFO = output.create();
 
@@ -365,6 +423,18 @@ pandoraReading::operator()(const edm4hep::ReconstructedParticleCollection& input
         newPFO.setReferencePoint(
             pfo.getReferencePoint());
 
+        for (auto particle : pfo.getParticles())
+            newPFO.addToParticles(particle);
+
+        info()
+            << "Energy = "
+            << pfo.getEnergy()
+            << " Tracks = "
+            << pfo.getTracks().size()
+            << " Clusters = "
+            << pfo.getClusters().size()
+            << endmsg;
+
         //------------------------------------------------------
         // copy relations
         //------------------------------------------------------
@@ -379,76 +449,58 @@ pandoraReading::operator()(const edm4hep::ReconstructedParticleCollection& input
               break;
             }
         }
-        for (auto track : pfo.getTracks()){
-           // newPFO.addToTracks(track);
-           info() << "Track ID: collectionID = "
-           << track.getObjectID().collectionID
-           << ", index = "
-           << track.getObjectID().index
-           << endmsg;
-             std::cout<<"========returning trackCalo intersection=========="<<std::endl;
-         
-             edm4hep::TrackState state=helixAtLastTrack(track, eCalBarrelInnerR, eCalBarrelMaxZ,  eCalEndCapInnerR, eCalEndCapOuterR,
-                                             eCalEndCapInnerZ, m_Bz);
-             auto ref_Calo = state.referencePoint;
-                         std::cout << "Track intersection2: ("
-                                   << ref_Calo.x << ", "
-                                   << ref_Calo.y << ", "
-                                   << ref_Calo.z << ")\n";            
-
-        }
         
-        for (auto cluster : pfo.getClusters()){
-           // newPFO.addToClusters(cluster);
-            info() << "Cluster ID: collectionID = "
-           << cluster.getObjectID().collectionID
-           << ", index = "
-           << cluster.getObjectID().index
-           << endmsg;
-            auto pos = cluster.getPosition();
-            std::cout << "Cluster centroid: ("
-              << pos.x << ", "
-              << pos.y << ", "
-              << pos.z << ")\n";
-
-        }
+    
         // Forming the cluster->track map
-        std::vector<ClusterTrackMap> clusterTrackMaps;
+        //std::vector<ClusterTrackMap> clusterTrackMaps;
 
-        for (const auto& cluster : pfo.getClusters()) {
+        for (const auto& cluster : pfo.getClusters()) {  // PFO cluster loop starts
 
            if (!cluster.isAvailable())
               continue;
-           
+           tempClusters.push_back(cluster);           
+
            ClusterTrackMap entry;
            entry.cluster = cluster;
 
-           for (const auto& track : pfo.getTracks()) {
+           for (const auto& track : pfo.getTracks()) { // PFO track loop starts
               if (track.isAvailable()) {
                   entry.tracks.push_back(track);
               }
-           }
+           }  //  PFO track loop ends
 
            clusterTrackMaps.push_back(std::move(entry));
-        }
-         // sorting the cluster track map
-          std::sort(clusterTrackMaps.begin(), clusterTrackMaps.end(),
-          [](const ClusterTrackMap& a, const ClusterTrackMap& b) {
+        }  //  PFO cluster loop starts ends
+
+     } // PFO  loop ends
+
+     // sorting the cluster track map
+       std::sort(clusterTrackMaps.begin(), clusterTrackMaps.end(),
+       [](const ClusterTrackMap& a, const ClusterTrackMap& b) {
               return a.cluster.getEnergy() > b.cluster.getEnergy(); 
-          });
+       });
 
-         //sorting the tracks by distance from the cluster
 
-          for (auto& entry : clusterTrackMaps) {
+       std::sort(tempClusters.begin(),tempClusters.end(),
+       [](const edm4hep::Cluster& a, const edm4hep::Cluster& b){
+            return a.getEnergy() > b.getEnergy();
+       });
+      //sorting the tracks by distance from the cluster
 
-            if (entry.tracks.size() <= 1)
-               continue;
+       std::cout << "==============Size of clusterTrackMaps ============ "<< clusterTrackMaps.size()<< std::endl;
 
-            std::cout<<"!!!!!!!!!!!!!!!!!!!!!!!!!there are more than one track==============="<<std::endl;
+        std::cout << "==============Size of tempClusters ============ "<< tempClusters.size()<< std::endl;
 
-            const auto clusterPos = entry.cluster.getPosition();
+       for (auto& entry : clusterTrackMaps) {  //  Looping over clusterTrackMaps starts
 
-            std::sort(entry.tracks.begin(), entry.tracks.end(),
+          if (entry.tracks.size() <= 1)
+            continue;
+
+          std::cout<<"!!!!!!!!!!!!!!!!!!!!!!!!!there are more than one track==============="<<std::endl;
+
+          const auto clusterPos = entry.cluster.getPosition();
+
+          std::sort(entry.tracks.begin(), entry.tracks.end(),
             [&](const edm4hep::Track& a, const edm4hep::Track& b) {
 
                auto getDistance = [&](const edm4hep::Track& track) {
@@ -466,9 +518,13 @@ pandoraReading::operator()(const edm4hep::ReconstructedParticleCollection& input
 
              return getDistance(a) < getDistance(b); // closest first
            });
-        }
+        }  //Looping over clusterTrackMaps ends
 
-        for (const auto& entry : clusterTrackMaps) {
+        //std::vector<edm4hep::Cluster> bremCands;
+        std::vector<int> clusterIndex;
+        std::vector<bremRecoveredClusterTrackMap> bremRecoveredClusterTrackMaps;
+
+        for (const auto& entry : clusterTrackMaps) {  //  Looping over clusterTrackMaps starts for brem recovery
 
             const auto& cluster = entry.cluster;
 
@@ -497,7 +553,6 @@ pandoraReading::operator()(const edm4hep::ReconstructedParticleCollection& input
             double radius = eCalBarrelInnerR;
             ThreeVector intersectZ;
             aStatus = GetPointInZ(zPlane,refPt,momVec,intersectZ);
-            auto p = pfo.getMomentum();
             std::cout<<"refPt.x: "<<refPt.x<<", refPt.y: "<<refPt.y<<", refPt.z: "<<refPt.z<<std::endl;
             std::cout<<"momVec.x: "<<momVec.x<<", momVec.y: "<<momVec.y<<", momVec.z: "<<momVec.z<<std::endl;
 
@@ -511,28 +566,102 @@ pandoraReading::operator()(const edm4hep::ReconstructedParticleCollection& input
            if (radius <= 0.) { // this should never happen
               throw std::invalid_argument("BremRecoveryAlgorithm: ECAL barrel inner radius < 0!");
            } 
-           if (intersectZ.magXY() > radius) // the tangent intersects the barrel before reaching the endcap - recalculate it
-            aStatus = GetPointOnCircle(radius,refPt,momVec,finalIntersectPt);
+
+           std::cout<<"intersectZ.magXY(): "<<intersectZ.magXY()<<" radius: "<<radius<<std::endl;
+
+           if (intersectZ.magXY() > radius){ // the tangent intersects the barrel before reaching the endcap - recalculate it
+              if(std::abs(refPt.x) < std::numeric_limits<float>::epsilon() &&
+                 std::abs(refPt.y) < std::numeric_limits<float>::epsilon() &&
+                 std::abs(refPt.z) < std::numeric_limits<float>::epsilon()){
+
+                 aStatus = GetPointOnCircleForRefAtOrigin(radius,refPt,momVec,finalIntersectPt);
+
+              }
+              else{
+                 aStatus = GetPointOnCircle(radius,refPt,momVec,finalIntersectPt);
+              }
+           }
 
           if (!aStatus) {
             throw std::runtime_error("BremRecoveryAlgorithm: failed to run BremRecoveryUtility::GetPointOnCircle!");
-          }        
+          }
+          std::cout<<"====aStatus======="<<aStatus<<std::endl;        
+          std::cout<<"finalIntersectPt.x: "<<finalIntersectPt.x<<", finalIntersectPt.y: "<<finalIntersectPt.y<<", finalIntersectPt.z: "<<finalIntersectPt.z<<std::endl;
 
+          double m_dEtaMargin =0.005;
+          double m_dPhiMargin = 0.05;
 
-        }
+          const auto& clusterPos1st = cluster.getPosition();
+          const auto vecClus1 = ThreeVector(clusterPos1st.x,
+                                            clusterPos1st.y,
+                                            clusterPos1st.z);
+          const double eta1st = vecClus1.eta();
+          const double phi1st = vecClus1.phi();
+          const double maxEta = eta1st + m_dEtaMargin;
+          const double minEta = eta1st - m_dEtaMargin;
+          const double bremBandPhi = deltaPhi(finalIntersectPt.phi(),phi1st);
+          const double maxDPhi = bremBandPhi > 0. ? bremBandPhi + m_dPhiMargin : m_dPhiMargin;
+          const double minDPhi = bremBandPhi > 0. ? -m_dPhiMargin : bremBandPhi - m_dPhiMargin;
 
-        for (auto particle : pfo.getParticles())
-            newPFO.addToParticles(particle);
+           std::vector<edm4hep::Cluster> bremCands;
+           //bremCands.push_back(cluster);
+          // loop over clusters again
+          for (const auto& cluster2nd:tempClusters) { //  Looping over temporary clusters
+              
+             if (cluster2nd.getObjectID().index == cluster.getObjectID().index){  // start if 
+               std::cout<<"cluster2nd.getObjectID().index: "<<cluster2nd.getObjectID().index<<std::endl;
+               std::cout<<"cluster.getObjectID().index: "<<cluster.getObjectID().index<<std::endl;
+               continue;
+             }      // end if 
+             if (!cluster2nd.isAvailable())
+                continue;
 
-        info()
-            << "Energy = "
-            << pfo.getEnergy()
-            << " Tracks = "
-            << pfo.getTracks().size()
-            << " Clusters = "
-            << pfo.getClusters().size()
-            << endmsg;
-    }
+      // TODO apply a templated e/gamma ID
+      // if (not pass ID...)
+      //   continue;
 
+      // check the strip
+            //std::cout<<"cluster2nd.getObjectID().index: "<<cluster2nd.getObjectID().index<<std::endl;
+            //std::cout<<"cluster.getObjectID().index: "<<cluster.getObjectID().index<<std::endl;
+            const auto& clusterPos2nd = cluster2nd.getPosition();
+            const auto vecClus2 = ThreeVector(clusterPos2nd.x,
+                                              clusterPos2nd.y,
+                                              clusterPos2nd.z);
+            const double eta2nd = vecClus2.eta();
+            const double phi2nd = vecClus2.phi();
+            const double finalDeltaPhi = deltaPhi(phi2nd,phi1st);
+
+      // 3. Incorporate the selected clusters and recluster the electron cluster
+            if (minEta < eta2nd && eta2nd < maxEta && minDPhi < finalDeltaPhi && finalDeltaPhi < maxDPhi) {  //start if
+                std::cout<<"===========found a brem candidate============"<<std::endl;
+      
+                if (std::find(clusterIndex.begin(), clusterIndex.end(), cluster2nd.getObjectID().index) == clusterIndex.end()){ //start if
+                    bremCands.push_back(cluster2nd);
+                    clusterIndex.push_back(cluster2nd.getObjectID().index);
+                }//end if
+                if (std::find(clusterIndex.begin(), clusterIndex.end(), cluster.getObjectID().index) == clusterIndex.end()){ //start if
+                    bremCands.push_back(cluster);
+                    clusterIndex.push_back(cluster.getObjectID().index);
+                }//end if
+             }//end if
+          } //  end Looping over temporary clusters
+          std::cout<<"===================size of bremCands==================:::  "<<bremCands.size()<<std::endl;
+          if(bremCands.size()!=0)
+             bremRecoverdClusters.push_back(bremCands);
+          else{
+             std::vector<edm4hep::Cluster> placeHolder;
+             placeHolder.push_back(cluster);
+             bremRecoverdClusters.push_back(placeHolder);
+          }  
+         //std::cout<<"===================size of bremCandsVector==================:::  "<<bremRecoverdClusters.size()<<std::endl;
+        }  //  Looping over clusterTrackMaps ends for brem recovery
+         std::cout<<"===================size of clusterIndex==================:::  "<<clusterIndex.size()<<std::endl;
+          for (int x : clusterIndex)
+          {
+            std::cout << x << " ";
+          }
+         std::cout << std::endl;
+         std::cout<<"===================size of bremCandsVector==================:::  "<<bremRecoverdClusters.size()<<std::endl;
     return output;
 }
+  
