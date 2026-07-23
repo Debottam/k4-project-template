@@ -31,7 +31,7 @@ ApplicationMgr(
     TopAlg=[alg],
     ExtSvc=[io],
     EvtSel="NONE",
-    EvtMax=10,
+    EvtMax=50,
     OutputLevel=INFO,
 )
 
