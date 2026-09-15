@@ -230,12 +230,12 @@ bool GetPointInZ(const double zPlane,        // z plane (endcap) coordinate
     }
 
     intersectPt.z = momVec.z > 0. ? std::abs(zPlane) : -std::abs(zPlane);
-    std::cout<<"intersectPt.z: "<<intersectPt.z<<std::endl;
-    std::cout<<"momVec.z: "<<momVec.z<<std::endl;
+    //std::cout<<"intersectPt.z: "<<intersectPt.z<<std::endl;
+    //std::cout<<"momVec.z: "<<momVec.z<<std::endl;
     const double genericTime = (intersectPt.z - refPt.z)/momVec.z;
-    std::cout<<"genericTime: "<<genericTime<<std::endl;
-    std::cout<<"momVec.x: "<<momVec.x<<std::endl;
-    std::cout<<"refPt.x: "<<refPt.x<<std::endl;
+    //std::cout<<"genericTime: "<<genericTime<<std::endl;
+    //std::cout<<"momVec.x: "<<momVec.x<<std::endl;
+    //std::cout<<"refPt.x: "<<refPt.x<<std::endl;
     intersectPt.x = refPt.x + momVec.x*genericTime;
     intersectPt.y = refPt.y + momVec.y*genericTime;
 
@@ -359,9 +359,9 @@ pandoraReading::operator()(const edm4hep::ReconstructedParticleCollection& input
     //==============DetectorRelatedOutput===============//
 
     auto detector = m_geoSvc->getDetector();
-    std::cout << "Number of detectors = "
+    /*std::cout << "Number of detectors = "
               << detector->detectors().size()
-              << std::endl;
+              << std::endl;*/
 
    // for (const auto& det : detector->detectors()) {
    //     std::cout << "Detector: " << det.first << std::endl;
@@ -369,22 +369,22 @@ pandoraReading::operator()(const edm4hep::ReconstructedParticleCollection& input
 
 
     double eCalBarrelInnerR = detector->constantAsDouble("ECalBarrel_inner_radius")/dd4hep::mm;
-     std::cout << "eCalBarrelInnerR: " << eCalBarrelInnerR << std::endl;
+     //std::cout << "eCalBarrelInnerR: " << eCalBarrelInnerR << std::endl;
 
     double eCalBarrelMaxZ = detector->constantAsDouble("ECalBarrel_half_length")/dd4hep::mm;
-     std::cout << "eCalBarrelMaxZ: " << eCalBarrelMaxZ << std::endl;
+     //std::cout << "eCalBarrelMaxZ: " << eCalBarrelMaxZ << std::endl;
 
     double eCalEndCapInnerR = detector->constantAsDouble("ECalEndcap_inner_radius")/dd4hep::mm;
-     std::cout << "eCalEndCapInnerR: " << eCalEndCapInnerR << std::endl;
+     //std::cout << "eCalEndCapInnerR: " << eCalEndCapInnerR << std::endl;
 
     double eCalEndCapOuterR = detector->constantAsDouble("ECalEndcap_outer_radius")/dd4hep::mm;
-     std::cout << "eCalEndCapOuterR: " << eCalEndCapOuterR << std::endl;
+     //std::cout << "eCalEndCapOuterR: " << eCalEndCapOuterR << std::endl;
 
     double eCalEndCapInnerZ =detector->constantAsDouble("ECalEndcap_min_z")/dd4hep::mm;
-     std::cout << "eCalEndCapInnerZ: " <<eCalEndCapInnerZ << std::endl; 
+     //std::cout << "eCalEndCapInnerZ: " <<eCalEndCapInnerZ << std::endl; 
 
     double m_Bz = getFieldFromCompact();
-    std::cout << "B field (T) is : " << m_Bz << std::endl;
+    //std::cout << "B field (T) is : " << m_Bz << std::endl;
 
     //double radius =
     //detector->constantAsDouble("ECalBarrel_inner_radius");
@@ -399,12 +399,14 @@ pandoraReading::operator()(const edm4hep::ReconstructedParticleCollection& input
 
     std::vector<std::vector<edm4hep::Cluster>> bremRecoverdClusters;
 
+    std::cout << "==============start of new event ============ \n"<< std::endl;
+
     std::cout << "==============Number of PFOs ============ "<< input.size()<< std::endl;
 
 
     for (const auto& pfo : input) {  //PFO loop starts
 
-        auto newPFO = output.create();
+        //auto newPFO = output.create();
 
         //------------------------------------------------------
         // copy basic information
@@ -412,22 +414,22 @@ pandoraReading::operator()(const edm4hep::ReconstructedParticleCollection& input
 
         //newPFO.setType(pfo.getType());
 
-        newPFO.setEnergy(pfo.getEnergy());
+        //newPFO.setEnergy(pfo.getEnergy());
 
-        newPFO.setCharge(pfo.getCharge());
+        //newPFO.setCharge(pfo.getCharge());
 
-        newPFO.setMass(pfo.getMass());
+        //newPFO.setMass(pfo.getMass());
 
-        newPFO.setMomentum(pfo.getMomentum());
+        //newPFO.setMomentum(pfo.getMomentum());
 
-        newPFO.setReferencePoint(
-            pfo.getReferencePoint());
+        //newPFO.setReferencePoint(
+         //   pfo.getReferencePoint());
 
-        for (auto particle : pfo.getParticles())
-            newPFO.addToParticles(particle);
+        //for (auto particle : pfo.getParticles())
+          //  newPFO.addToParticles(particle);
 
         info()
-            << "Energy = "
+            << "PFO Energy = "
             << pfo.getEnergy()
             << " Tracks = "
             << pfo.getTracks().size()
@@ -487,9 +489,9 @@ pandoraReading::operator()(const edm4hep::ReconstructedParticleCollection& input
        });
       //sorting the tracks by distance from the cluster
 
-       std::cout << "==============Size of clusterTrackMaps ============ "<< clusterTrackMaps.size()<< std::endl;
+       //std::cout << "==============Size of clusterTrackMaps ============ "<< clusterTrackMaps.size()<< std::endl;
 
-        std::cout << "==============Size of tempClusters ============ "<< tempClusters.size()<< std::endl;
+       // std::cout << "==============Size of tempClusters ============ "<< tempClusters.size()<< std::endl;
 
        for (auto& entry : clusterTrackMaps) {  //  Looping over clusterTrackMaps starts
 
@@ -528,10 +530,10 @@ pandoraReading::operator()(const edm4hep::ReconstructedParticleCollection& input
 
             const auto& cluster = entry.cluster;
 
-            std::cout << "Cluster energy = " << cluster.getEnergy() << std::endl;
+            //std::cout << "Cluster energy = " << cluster.getEnergy() << std::endl;
 
             if (entry.tracks.empty()) {
-             std::cout << "  No associated tracks." << std::endl;
+             //std::cout << "  No associated tracks." << std::endl;
              continue;
             }
 
@@ -539,10 +541,10 @@ pandoraReading::operator()(const edm4hep::ReconstructedParticleCollection& input
                 continue;
 
                // Use the track
-               std::cout << "  Track has "
+               /*std::cout << "  Track has "
                   << entry.tracks[0].getTrackStates().size()
                   << " track states."
-                  << std::endl;
+                  << std::endl;*/
 
             bool aStatus = false;
             const auto& track1st = entry.tracks[0];
@@ -553,13 +555,13 @@ pandoraReading::operator()(const edm4hep::ReconstructedParticleCollection& input
             double radius = eCalBarrelInnerR;
             ThreeVector intersectZ;
             aStatus = GetPointInZ(zPlane,refPt,momVec,intersectZ);
-            std::cout<<"refPt.x: "<<refPt.x<<", refPt.y: "<<refPt.y<<", refPt.z: "<<refPt.z<<std::endl;
-            std::cout<<"momVec.x: "<<momVec.x<<", momVec.y: "<<momVec.y<<", momVec.z: "<<momVec.z<<std::endl;
+            //std::cout<<"refPt.x: "<<refPt.x<<", refPt.y: "<<refPt.y<<", refPt.z: "<<refPt.z<<std::endl;
+            //std::cout<<"momVec.x: "<<momVec.x<<", momVec.y: "<<momVec.y<<", momVec.z: "<<momVec.z<<std::endl;
 
             if (!aStatus) {
               throw std::runtime_error("BremRecoveryAlgorithm: failed to run BremRecoveryUtility::GetPointInZ!");
             }
-            std::cout<<"intersectZ.x: "<<intersectZ.x<<", intersectZ.y: "<<intersectZ.y<<", intersectZ.z: "<<intersectZ.z<<std::endl;
+            //std::cout<<"intersectZ.x: "<<intersectZ.x<<", intersectZ.y: "<<intersectZ.y<<", intersectZ.z: "<<intersectZ.z<<std::endl;
             
             ThreeVector finalIntersectPt = intersectZ;
 
@@ -567,7 +569,7 @@ pandoraReading::operator()(const edm4hep::ReconstructedParticleCollection& input
               throw std::invalid_argument("BremRecoveryAlgorithm: ECAL barrel inner radius < 0!");
            } 
 
-           std::cout<<"intersectZ.magXY(): "<<intersectZ.magXY()<<" radius: "<<radius<<std::endl;
+           //std::cout<<"intersectZ.magXY(): "<<intersectZ.magXY()<<" radius: "<<radius<<std::endl;
 
            if (intersectZ.magXY() > radius){ // the tangent intersects the barrel before reaching the endcap - recalculate it
               if(std::abs(refPt.x) < std::numeric_limits<float>::epsilon() &&
@@ -585,8 +587,8 @@ pandoraReading::operator()(const edm4hep::ReconstructedParticleCollection& input
           if (!aStatus) {
             throw std::runtime_error("BremRecoveryAlgorithm: failed to run BremRecoveryUtility::GetPointOnCircle!");
           }
-          std::cout<<"====aStatus======="<<aStatus<<std::endl;        
-          std::cout<<"finalIntersectPt.x: "<<finalIntersectPt.x<<", finalIntersectPt.y: "<<finalIntersectPt.y<<", finalIntersectPt.z: "<<finalIntersectPt.z<<std::endl;
+          //std::cout<<"====aStatus======="<<aStatus<<std::endl;        
+          //std::cout<<"finalIntersectPt.x: "<<finalIntersectPt.x<<", finalIntersectPt.y: "<<finalIntersectPt.y<<", finalIntersectPt.z: "<<finalIntersectPt.z<<std::endl;
 
           double m_dEtaMargin =0.005;
           double m_dPhiMargin = 0.05;
@@ -609,8 +611,8 @@ pandoraReading::operator()(const edm4hep::ReconstructedParticleCollection& input
           for (const auto& cluster2nd:tempClusters) { //  Looping over temporary clusters
               
              if (cluster2nd.getObjectID().index == cluster.getObjectID().index){  // start if 
-               std::cout<<"cluster2nd.getObjectID().index: "<<cluster2nd.getObjectID().index<<std::endl;
-               std::cout<<"cluster.getObjectID().index: "<<cluster.getObjectID().index<<std::endl;
+              // std::cout<<"cluster2nd.getObjectID().index: "<<cluster2nd.getObjectID().index<<std::endl;
+              // std::cout<<"cluster.getObjectID().index: "<<cluster.getObjectID().index<<std::endl;
                continue;
              }      // end if 
              if (!cluster2nd.isAvailable())
@@ -655,13 +657,115 @@ pandoraReading::operator()(const edm4hep::ReconstructedParticleCollection& input
           }  
          //std::cout<<"===================size of bremCandsVector==================:::  "<<bremRecoverdClusters.size()<<std::endl;
         }  //  Looping over clusterTrackMaps ends for brem recovery
-         std::cout<<"===================size of clusterIndex==================:::  "<<clusterIndex.size()<<std::endl;
+         //std::cout<<"===================size of clusterIndex==================:::  "<<clusterIndex.size()<<std::endl;
           for (int x : clusterIndex)
           {
             std::cout << x << " ";
           }
          std::cout << std::endl;
-         std::cout<<"===================size of bremCandsVector==================:::  "<<bremRecoverdClusters.size()<<std::endl;
+         //std::cout<<"===================size of bremCandsVector==================:::  "<<bremRecoverdClusters.size()<<std::endl;
+
+         // for all selected and recovered clusters
+
+         bremRecoveredClusterTrackMap recoveredMap;
+
+         // Keep track IDs here so that tracks are not duplicated
+         std::unordered_set<int> recoveredTrackIndices;
+
+         for (const auto& ctm : clusterTrackMaps) {
+
+           int clusterID = ctm.cluster.getObjectID().index;
+
+           // Is this cluster one of the selected clusters?
+           if (std::find(clusterIndex.begin(), clusterIndex.end(), clusterID)!= clusterIndex.end()){
+           //if (selectedClusterIndices.count(clusterIndex)) {
+
+             // Store the cluster
+              recoveredMap.clusters.push_back(ctm.cluster);
+
+             // Store associated tracks, but only once
+              for (const auto& track : ctm.tracks) {
+                //std::cout << "=========== Inside CTM tracks brem ============ " << std::endl;
+                int trackIndex = track.getObjectID().index;
+                //std::cout << "ctm.tracks = " << trackIndex << std::endl;
+
+                if (recoveredTrackIndices.insert(trackIndex).second) {
+                   recoveredMap.tracks.push_back(track);
+                }
+              }
+           }
+         }
+         
+       // --------------------------------------------------
+       //  Add the recovered/selected group
+       // --------------------------------------------------
+
+       if (!recoveredMap.clusters.empty()) {
+        bremRecoveredClusterTrackMaps.push_back(
+        std::move(recoveredMap)
+        );
+      }
+
+      // --------------------------------------------------
+      //       Store every remaining cluster separately
+      // --------------------------------------------------
+
+      for (const auto& ctm : clusterTrackMaps) {
+
+       int clusterID = ctm.cluster.getObjectID().index;
+
+        // Skip clusters already included in recoveredMap
+        if (std::find(clusterIndex.begin(), clusterIndex.end(), clusterID)!= clusterIndex.end()) {
+          continue;
+        }
+
+        bremRecoveredClusterTrackMap remainingMap;
+
+        // One cluster
+        remainingMap.clusters.push_back(ctm.cluster);
+
+        // Its associated tracks
+        for (const auto& track : ctm.tracks) {
+          //std::cout << "=========== Inside CTM tracks============ " << std::endl;
+          //std::cout <<"track.getObjectID().index:::"<<track.getObjectID().index<<std::endl;
+          remainingMap.tracks.push_back(track);
+        }
+
+        bremRecoveredClusterTrackMaps.push_back(
+          std::move(remainingMap)
+        );
+      }
+
+       for (const auto& entry : bremRecoveredClusterTrackMaps) {  //  Looping over clusterTrackMaps starts for brem recovery
+
+            for(const auto& track: entry.tracks){
+
+            //std::cout << "Retrieved Clusters ID = " << track.getObjectID().index << std::endl;
+            }
+       }
+      
+    //edm4hep::ReconstructedParticleCollection output;
+
+    for (const auto& bremMap : bremRecoveredClusterTrackMaps) {
+
+      // Create one ReconstructedParticle
+      auto particle = output.create();
+
+      // Add all associated tracks
+      for (const auto& track : bremMap.tracks) {
+        particle.addToTracks(track);
+       }
+
+      // Add all associated clusters
+      for (const auto& cluster : bremMap.clusters) {
+        particle.addToClusters(cluster);
+      }
+    }
+
+    std::cout << "====Number of PFO particles created:====="<< output.size() << std::endl;
+    std::cout <<"\n\n"<< std::endl;
+
+    std::cout << "::::::::::::::::::::::::end of an event ::::::::::::::::::::::::::::\n"<< std::endl;
     return output;
 }
   
