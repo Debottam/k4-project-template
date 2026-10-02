@@ -1,4 +1,4 @@
-#include "pandoraReading.h"
+#include "ElectronDresser.h"
 
 #include <GaudiKernel/MsgStream.h>
 
@@ -8,7 +8,7 @@
 
 #include <cmath>
 
-DECLARE_COMPONENT(pandoraReading)
+DECLARE_COMPONENT(ElectronDresser)
 
 // struct for storing cluster and assocated track from PFO
 struct ClusterTrackMap {
@@ -16,7 +16,7 @@ struct ClusterTrackMap {
     std::vector<edm4hep::Track> tracks;
 };
 
-// struct for storing cluster and assocated track for target PFO
+// struct for storing brem Recovered clustera and assocated track for target PFO
 struct bremRecoveredClusterTrackMap {
     std::vector<edm4hep::Cluster> clusters;
     std::vector<edm4hep::Track> tracks;
@@ -38,6 +38,18 @@ struct ThreeVector {
     double eta() const { return -std::log(std::tan(theta()/2.)); }
   };
 
+double deltaPhi(const double p1, const double p2) {
+    double oo2pi = 1./(2.*M_PI);
+
+    if (std::abs(p1-p2) <= M_PI)
+      return p1 - p2;
+
+    double n = std::round((p1-p2)*oo2pi);
+
+    return p1 - p2 - n*2.*M_PI;
+  }
+
+/* decorating the track state at calorimeter level */
 edm4hep::TrackState getExtrapolationAtCalorimeter(const pandora::CartesianVector& ecalProjection,
                                                   const HelixClass_double& helixAtLastHit, double Bz) {
 
@@ -83,6 +95,7 @@ edm4hep::TrackState trackStateAtIP(const edm4hep::Track& track){
   return trackState_AtIP;
 }
 
+/* track extrapolation to calorimeter cluster from the last track state */
 edm4hep::TrackState helixAtLastTrack(const edm4hep::Track& track, double eCalBarrelInnerR, double eCalBarrelMaxZ,  double eCalEndCapInnerR, double eCalEndCapOuterR,
                                             double eCalEndCapInnerZ, double m_Bz){
                    
@@ -90,7 +103,7 @@ edm4hep::TrackState helixAtLastTrack(const edm4hep::Track& track, double eCalBar
          edm4hep::TrackState trackState_AtCalorimeter;
          for (const auto& state : track.getTrackStates()) {    //start of state loop
              
-
+                 /* track needs to be extrapolated from its last hit */
                  if (state.location == edm4hep::TrackState::AtLastHit) {  // start of state.location if
                     
                     double phi       = state.phi;
@@ -243,6 +256,7 @@ bool GetPointInZ(const double zPlane,        // z plane (endcap) coordinate
   }
 
 
+/* if track reherence point is not at origin */
 bool GetPointOnCircle(const double radius,        // (barrel) radius
                         const ThreeVector& refPt,   // reference point
                         const ThreeVector& momVec,  // momentum
@@ -289,18 +303,8 @@ bool GetPointOnCircle(const double radius,        // (barrel) radius
     return true;
   }
 
- double deltaPhi(const double p1, const double p2) {
-    double oo2pi = 1./(2.*M_PI);
 
-    if (std::abs(p1-p2) <= M_PI)
-      return p1 - p2;
-
-    double n = std::round((p1-p2)*oo2pi);
-
-    return p1 - p2 - n*2.*M_PI;
-  }
-
-
+/* if track reference at the origin */
 bool GetPointOnCircleForRefAtOrigin(const double radius,        // (barrel) radius
                         const ThreeVector& refPt,   // reference point
                         const ThreeVector& momVec,  // momentum
@@ -331,7 +335,7 @@ bool GetPointOnCircleForRefAtOrigin(const double radius,        // (barrel) radi
   }
 
 
-pandoraReading::pandoraReading( const std::string& name,ISvcLocator* svc)
+ElectronDresser::ElectronDresser( const std::string& name,ISvcLocator* svc)
 
     : Transformer(name,svc,{
               KeyValue{"InputPFOs", "PandoraPFOs"},
@@ -350,7 +354,7 @@ std::cout << "pandoraReading constructor called" << std::endl;
 }
 
 edm4hep::ReconstructedParticleCollection 
-pandoraReading::operator()(const edm4hep::ReconstructedParticleCollection& input,
+ElectronDresser::operator()(const edm4hep::ReconstructedParticleCollection& input,
                            const edm4hep::MCParticleCollection& mcs,
                            const MCTruthRecoLinkCollection& links,
                            const edm4hep::ClusterCollection& clusters,
@@ -404,29 +408,28 @@ pandoraReading::operator()(const edm4hep::ReconstructedParticleCollection& input
     std::cout << "==============Number of PFOs ============ "<< input.size()<< std::endl;
 
 
+    float Total_MC_Energy = 0.0;
+    float Total_PFO_Energy = 0.0;
+    float Total_MC_Truth_Energy = 0.0;
+    float Total_Input_PFO_Cluster_Energy = 0.0;
+    float Total_Input_PFO_Track_Energy = 0.0;
+
+    for (const auto& mc : mcs) {
+
+        //if(!mc.isCreatedInSimulation()){
+           Total_MC_Truth_Energy= Total_MC_Truth_Energy+mc.getEnergy();
+        //}
+        std::cout << "=======MC particle Truth energy ==== "
+                  << mc.getEnergy()
+                  << " GeV" << std::endl;
+        std::cout <<"mc.getPDG(): "<< mc.getPDG() <<std::endl;
+        std::cout <<"mc.isCreatedInSimulation(): "<< mc.isCreatedInSimulation() <<std::endl;
+    }
+     std::cout << "=======Total MC particle Truth energy ==== "
+                  << Total_MC_Truth_Energy
+                  << " GeV" << std::endl;
+
     for (const auto& pfo : input) {  //PFO loop starts
-
-        //auto newPFO = output.create();
-
-        //------------------------------------------------------
-        // copy basic information
-        //------------------------------------------------------
-
-        //newPFO.setType(pfo.getType());
-
-        //newPFO.setEnergy(pfo.getEnergy());
-
-        //newPFO.setCharge(pfo.getCharge());
-
-        //newPFO.setMass(pfo.getMass());
-
-        //newPFO.setMomentum(pfo.getMomentum());
-
-        //newPFO.setReferencePoint(
-         //   pfo.getReferencePoint());
-
-        //for (auto particle : pfo.getParticles())
-          //  newPFO.addToParticles(particle);
 
         info()
             << "PFO Energy = "
@@ -437,6 +440,7 @@ pandoraReading::operator()(const edm4hep::ReconstructedParticleCollection& input
             << pfo.getClusters().size()
             << endmsg;
 
+           Total_PFO_Energy = Total_PFO_Energy+ pfo.getEnergy();
         //------------------------------------------------------
         // copy relations
         //------------------------------------------------------
@@ -448,8 +452,12 @@ pandoraReading::operator()(const edm4hep::ReconstructedParticleCollection& input
             auto mc   = link.getTo();
             if(reco.getObjectID().index==pfo.getObjectID().index){
               std::cout <<"mc.getPDG(): "<< mc.getPDG() << '\n';
+              std::cout <<"mc.isCreatedInSimulation(): "<< mc.isCreatedInSimulation() << '\n';
+              std::cout << "MC energy = "<< mc.getEnergy() << '\n';
+              Total_MC_Energy = Total_MC_Energy+mc.getEnergy();
               break;
             }
+          
         }
         
     
@@ -460,6 +468,8 @@ pandoraReading::operator()(const edm4hep::ReconstructedParticleCollection& input
 
            if (!cluster.isAvailable())
               continue;
+
+           Total_Input_PFO_Cluster_Energy = Total_Input_PFO_Cluster_Energy+cluster.getEnergy();
            tempClusters.push_back(cluster);           
 
            ClusterTrackMap entry;
@@ -467,6 +477,14 @@ pandoraReading::operator()(const edm4hep::ReconstructedParticleCollection& input
 
            for (const auto& track : pfo.getTracks()) { // PFO track loop starts
               if (track.isAvailable()) {
+                  auto state = track.getTrackStates(edm4hep::TrackState::AtIP);
+                  const auto momVec = getMomentum(state, m_Bz);
+
+                  float p = std::sqrt(momVec.x*momVec.x + momVec.y*momVec.y + momVec.z*momVec.z);
+
+                  // massless approximation
+
+                  Total_Input_PFO_Track_Energy = Total_Input_PFO_Track_Energy+p;
                   entry.tracks.push_back(track);
               }
            }  //  PFO track loop ends
@@ -475,6 +493,9 @@ pandoraReading::operator()(const edm4hep::ReconstructedParticleCollection& input
         }  //  PFO cluster loop starts ends
 
      } // PFO  loop ends
+      std::cout <<"Total_MC_Energy: "<<Total_MC_Energy <<std::endl;
+      std::cout <<"Total_PFO_Energy: "<<Total_PFO_Energy <<std::endl;
+      std::cout <<"diff_PFO_mc_Energy: "<<std::abs(Total_PFO_Energy-Total_MC_Energy) <<std::endl;
 
      // sorting the cluster track map
        std::sort(clusterTrackMaps.begin(), clusterTrackMaps.end(),
@@ -590,8 +611,8 @@ pandoraReading::operator()(const edm4hep::ReconstructedParticleCollection& input
           //std::cout<<"====aStatus======="<<aStatus<<std::endl;        
           //std::cout<<"finalIntersectPt.x: "<<finalIntersectPt.x<<", finalIntersectPt.y: "<<finalIntersectPt.y<<", finalIntersectPt.z: "<<finalIntersectPt.z<<std::endl;
 
-          double m_dEtaMargin =0.005;
-          double m_dPhiMargin = 0.05;
+          double dEtaMargin = m_dEtaMargin;
+          double dPhiMargin = m_dPhiMargin;
 
           const auto& clusterPos1st = cluster.getPosition();
           const auto vecClus1 = ThreeVector(clusterPos1st.x,
@@ -599,11 +620,11 @@ pandoraReading::operator()(const edm4hep::ReconstructedParticleCollection& input
                                             clusterPos1st.z);
           const double eta1st = vecClus1.eta();
           const double phi1st = vecClus1.phi();
-          const double maxEta = eta1st + m_dEtaMargin;
-          const double minEta = eta1st - m_dEtaMargin;
+          const double maxEta = eta1st + dEtaMargin;
+          const double minEta = eta1st - dEtaMargin;
           const double bremBandPhi = deltaPhi(finalIntersectPt.phi(),phi1st);
-          const double maxDPhi = bremBandPhi > 0. ? bremBandPhi + m_dPhiMargin : m_dPhiMargin;
-          const double minDPhi = bremBandPhi > 0. ? -m_dPhiMargin : bremBandPhi - m_dPhiMargin;
+          const double maxDPhi = bremBandPhi > 0. ? bremBandPhi + dPhiMargin : dPhiMargin;
+          const double minDPhi = bremBandPhi > 0. ? -dPhiMargin : bremBandPhi - dPhiMargin;
 
            std::vector<edm4hep::Cluster> bremCands;
            //bremCands.push_back(cluster);
@@ -746,24 +767,69 @@ pandoraReading::operator()(const edm4hep::ReconstructedParticleCollection& input
       
     //edm4hep::ReconstructedParticleCollection output;
 
-    for (const auto& bremMap : bremRecoveredClusterTrackMaps) {
+    
+    for (const auto& bremMap : bremRecoveredClusterTrackMaps) { // for bremMap starts
 
       // Create one ReconstructedParticle
       auto particle = output.create();
+      
+      float clusterEnergy = 0.0;
+      float pfoEnergy = 0.0;
 
       // Add all associated tracks
-      for (const auto& track : bremMap.tracks) {
+      for (const auto& track : bremMap.tracks) { // for track starts 
         particle.addToTracks(track);
-       }
+       }                                         // for track ends
 
       // Add all associated clusters
-      for (const auto& cluster : bremMap.clusters) {
+      for (const auto& cluster : bremMap.clusters) { // for cluster starts 
         particle.addToClusters(cluster);
-      }
-    }
+        clusterEnergy += cluster.getEnergy();
+        for (const auto& pfo : input) {              // for pfo starts
+
+            for (const auto& pfoCluster : pfo.getClusters()) {  // for pfocluster starts
+
+                if (pfoCluster.getObjectID().index ==
+                    cluster.getObjectID().index) { // if starts 
+
+                    pfoEnergy += pfo.getEnergy();
+
+                    //std::cout << "Found PFO energy = "
+                    //          << pfo.getEnergy() << std::endl;
+                    
+                    break;
+                }                                  // if ends
+            }                                       // for pfocluster ends
+      }                                              // for pfo ends
+    
+    }                                                           // for cluster ends
+     std::cout << "clusterEnergy = " << clusterEnergy << std::endl;                                     
+     std::cout << "pfoEnergy = " << pfoEnergy << std::endl;
+     particle.setEnergy(clusterEnergy);
+    }// for bremMap ends
+
+     
 
     std::cout << "====Number of PFO particles created:====="<< output.size() << std::endl;
     std::cout <<"\n\n"<< std::endl;
+ 
+    float Total_PFO_Output_energy = 0.0;
+    int outputSize = 0;
+    for (const auto& pfoOut : output) {  //PFO loop starts
+      if (outputSize==0){
+       Total_PFO_Output_energy=Total_PFO_Output_energy+pfoOut.getEnergy();
+      }
+      outputSize=outputSize+1;
+      std::cout << "PFO Output Energy = "<< pfoOut.getEnergy()<<" GeV"<<std::endl;
+    }
+
+    std::cout << "Total PFO Output Energy = "<< Total_PFO_Output_energy<<" GeV"<<std::endl;
+
+    std::cout <<"Total_Input_PFO_Cluster_Energy = "<<Total_Input_PFO_Cluster_Energy<<" GeV"<<std::endl;
+
+     std::cout <<"Total_Input_PFO_Track_Energy = "<<Total_Input_PFO_Track_Energy<<" GeV"<<std::endl;
+
+    std::cout << "PFO resolution = "<< (Total_Input_PFO_Track_Energy-Total_MC_Truth_Energy)/Total_MC_Truth_Energy<<std::endl;
 
     std::cout << "::::::::::::::::::::::::end of an event ::::::::::::::::::::::::::::\n"<< std::endl;
     return output;

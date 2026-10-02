@@ -24,7 +24,7 @@ using MCTruthRecoLinkCollection =
     podio::LinkCollection<edm4hep::ReconstructedParticle, edm4hep::MCParticle>;
 
 
-class pandoraReading :
+class ElectronDresser:
     public k4FWCore::Transformer<
         edm4hep::ReconstructedParticleCollection(
             const edm4hep::ReconstructedParticleCollection&,
@@ -35,7 +35,7 @@ class pandoraReading :
 
 public:
 
-    pandoraReading(const std::string& name,
+    ElectronDresser(const std::string& name,
                     ISvcLocator* svc);
 
     edm4hep::ReconstructedParticleCollection operator()(
@@ -47,4 +47,7 @@ public:
 
 private:
      ServiceHandle<IGeoSvc> m_geoSvc{this, "GeoSvc", "GeoSvc", "Geometry service"};
+
+     Gaudi::Property<double> m_dEtaMargin{this, "dEtaMargin", 0.05, "Eta matching margin"};
+     Gaudi::Property<double> m_dPhiMargin{this, "dPhiMargin", 0.005, "Phi matching margin"};
 };
