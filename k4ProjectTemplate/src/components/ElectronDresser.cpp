@@ -263,6 +263,8 @@ bool GetPointOnCircle(const double radius,        // (barrel) radius
                         ThreeVector& intersectPt) { // output intersection point
     double refPtXY = refPt.magXY();
     double momVecXY = momVec.magXY();
+    std::cout << "===============GetPointOnCircle============= "<< std::endl;
+
     // protect from zero division
     if (std::abs(momVecXY) < std::numeric_limits<float>::epsilon()) {
       throw std::invalid_argument("BremRecoveryUtility: invalid pt (zero division)");
@@ -311,6 +313,7 @@ bool GetPointOnCircleForRefAtOrigin(const double radius,        // (barrel) radi
                         ThreeVector& intersectPt) { // output intersection point
     double refPtXY = refPt.magXY();
     double momVecXY = momVec.magXY();
+    std::cout << "===============GetPointOnCircleForRefAtOrigin============= "<< std::endl;
     // protect from zero division
     if (std::abs(momVecXY) < std::numeric_limits<float>::epsilon()) {
       throw std::invalid_argument("BremRecoveryUtility: invalid pt (zero division)");
@@ -416,9 +419,9 @@ ElectronDresser::operator()(const edm4hep::ReconstructedParticleCollection& inpu
 
     for (const auto& mc : mcs) {
 
-        //if(!mc.isCreatedInSimulation()){
+        if(!mc.isCreatedInSimulation()){
            Total_MC_Truth_Energy= Total_MC_Truth_Energy+mc.getEnergy();
-        //}
+        }
         std::cout << "=======MC particle Truth energy ==== "
                   << mc.getEnergy()
                   << " GeV" << std::endl;
@@ -468,8 +471,10 @@ ElectronDresser::operator()(const edm4hep::ReconstructedParticleCollection& inpu
 
            if (!cluster.isAvailable())
               continue;
-
-           Total_Input_PFO_Cluster_Energy = Total_Input_PFO_Cluster_Energy+cluster.getEnergy();
+           
+           if(pfo.getPDG()==11){
+             Total_Input_PFO_Cluster_Energy = Total_Input_PFO_Cluster_Energy+cluster.getEnergy();
+           }
            tempClusters.push_back(cluster);           
 
            ClusterTrackMap entry;
@@ -569,14 +574,15 @@ ElectronDresser::operator()(const edm4hep::ReconstructedParticleCollection& inpu
 
             bool aStatus = false;
             const auto& track1st = entry.tracks[0];
-            const auto& trackState1st = trackStateAtIP(track1st);
+            //const auto& trackState1st = trackStateAtIP(track1st);
+            const auto& trackState1st = track1st.getTrackStates(edm4hep::TrackState::AtIP);
             const auto refPt = ThreeVector(trackState1st.referencePoint.x, trackState1st.referencePoint.y, trackState1st.referencePoint.z);
             const auto momVec = getMomentum( trackState1st, m_Bz);
             double zPlane = eCalEndCapInnerZ;
             double radius = eCalBarrelInnerR;
             ThreeVector intersectZ;
             aStatus = GetPointInZ(zPlane,refPt,momVec,intersectZ);
-            //std::cout<<"refPt.x: "<<refPt.x<<", refPt.y: "<<refPt.y<<", refPt.z: "<<refPt.z<<std::endl;
+            std::cout<<"refPt.x: "<<refPt.x<<", refPt.y: "<<refPt.y<<", refPt.z: "<<refPt.z<<std::endl;
             //std::cout<<"momVec.x: "<<momVec.x<<", momVec.y: "<<momVec.y<<", momVec.z: "<<momVec.z<<std::endl;
 
             if (!aStatus) {
@@ -816,21 +822,28 @@ ElectronDresser::operator()(const edm4hep::ReconstructedParticleCollection& inpu
     float Total_PFO_Output_energy = 0.0;
     int outputSize = 0;
     for (const auto& pfoOut : output) {  //PFO loop starts
-      if (outputSize==0){
+      if ( pfoOut.getTracks().size()!=0){
        Total_PFO_Output_energy=Total_PFO_Output_energy+pfoOut.getEnergy();
       }
-      outputSize=outputSize+1;
-      std::cout << "PFO Output Energy = "<< pfoOut.getEnergy()<<" GeV"<<std::endl;
+      //outputSize=outputSize+1;
+      //std::cout << "PFO Output Energy = "<< pfoOut.getEnergy()<<" GeV"<<std::endl;
     }
 
-    std::cout << "Total PFO Output Energy = "<< Total_PFO_Output_energy<<" GeV"<<std::endl;
+    std::cout << "Total PFO Output electron cluster Energy = "<< Total_PFO_Output_energy<<" GeV"<<std::endl;
 
-    std::cout <<"Total_Input_PFO_Cluster_Energy = "<<Total_Input_PFO_Cluster_Energy<<" GeV"<<std::endl;
+    std::cout <<"Total_Input_PFO_electron_Cluster_Energy = "<<Total_Input_PFO_Cluster_Energy<<" GeV"<<std::endl;
 
-     std::cout <<"Total_Input_PFO_Track_Energy = "<<Total_Input_PFO_Track_Energy<<" GeV"<<std::endl;
+    std::cout <<"Total_Input_PFO_Track_Energy = "<<Total_Input_PFO_Track_Energy<<" GeV"<<std::endl;
 
     std::cout << "PFO resolution = "<< (Total_Input_PFO_Track_Energy-Total_MC_Truth_Energy)/Total_MC_Truth_Energy<<std::endl;
+ 
+    if (Total_Input_PFO_Cluster_Energy){
+      std::cout << "inputPFO resolution = "<< (Total_Input_PFO_Cluster_Energy-Total_MC_Truth_Energy)/Total_MC_Truth_Energy<<std::endl;
 
+      std::cout << "outputPFO resolution = "<< (Total_PFO_Output_energy-Total_MC_Truth_Energy)/Total_MC_Truth_Energy<<std::endl;
+
+      std::cout << "inputOutputPFO resolution = "<< (Total_PFO_Output_energy-Total_Input_PFO_Cluster_Energy)/Total_Input_PFO_Cluster_Energy<<std::endl;
+    }
     std::cout << "::::::::::::::::::::::::end of an event ::::::::::::::::::::::::::::\n"<< std::endl;
     return output;
 }
